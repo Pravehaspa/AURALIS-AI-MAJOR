@@ -10,7 +10,9 @@
 
 A cutting-edge voice AI platform combining **Google Gemini** conversational intelligence with **Murf AI** voice synthesis. Build and deploy intelligent voice agents in minutes.
 
----
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
+
+
 
 ## ✨ Key Features
 
@@ -22,6 +24,8 @@ A cutting-edge voice AI platform combining **Google Gemini** conversational inte
 | 🔄 **Auto Mode** | Speech-to-speech flows with real-time speech recognition and automatic replies |
 | 📊 **Analytics** | Track conversations, response times, and voice usage patterns |
 | 🔐 **Enterprise Ready** | Secure API, scalable architecture, and team collaboration tools |
+
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
 
 ## 🛠️ Tech Stack
 
@@ -42,6 +46,8 @@ A cutting-edge voice AI platform combining **Google Gemini** conversational inte
 - **React Context** — Global state management
 - **Local Storage** — Persistent data
 - **Custom Hooks** — Reusable logic
+
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
 
 ## 🚀 Quick Start
 
@@ -67,6 +73,8 @@ npm run dev
 # http://localhost:3000
 ```
 
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
+
 ### Prerequisites
 
 | Requirement | Version |
@@ -75,6 +83,8 @@ npm run dev
 | **npm/yarn/pnpm** | Latest |
 | **Google AI API Key** | [Get one](https://ai.google.dev) |
 | **Murf AI API Key** | [Get one](https://murf.ai) |
+
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
 
 ## 📁 Project Structure
 
@@ -88,6 +98,7 @@ Auralis-AI/
 ├── 🖼️  public/          # Static assets & images
 └── ⚙️  config files     # TypeScript, Tailwind, etc.
 ```
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
 
 ## 🎯 Core Features
 
@@ -227,6 +238,7 @@ git push origin feature/amazing-feature
 
 # 5. Open a Pull Request
 ```
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
 
 ## 📞 Support & Community
 
@@ -237,13 +249,7 @@ git push origin feature/amazing-feature
 | 📧 **Email** | support@auralis-ai.com |
 | 📖 **Docs** | [Documentation](https://docs.auralis-ai.com) |
 
-## 🎉 Murf AI Hackathon 2025
-
-Built as a hackathon submission showcasing the power of combining:
-- ✅ **Real-time Voice AI** — Expressive TTS
-- ✅ **Intelligent Responses** — Context-aware conversations
-- ✅ **Production-Ready** — Scalable & secure architecture
-- ✅ **Beautiful UX** — Modern, intuitive interface
+<img src="https://user-images.githubusercontent.com/85225156/171937799-8fc9e255-9889-4642-9c92-6df85fb86e82.gif" width="100%">
 
 ---
 
