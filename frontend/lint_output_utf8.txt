@@ -1,0 +1,37 @@
+﻿node.exe : Converting 
+circular structure to JSON
+At C:\Program 
+Files\nodejs\npx.ps1:29 
+char:3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (C  
+  onverting circular st   
+ ructure to JSON:Strin    
+g) [], RemoteExceptio    n
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+    --> starting at 
+object with constructor 
+'Object'
+    |     property 
+'configs' -> object with 
+constructor 'Object'
+    |     property 'flat' 
+-> object with 
+constructor 'Object'
+    |     ...
+    |     property 
+'plugins' -> object with 
+constructor 'Object'
+    --- property 'react' 
+closes the circle
+Referenced from: C:\Users\
+hansi_iq5v8g0\Desktop\Aura
+lis-Ai\frontend\.eslintrc.
+json

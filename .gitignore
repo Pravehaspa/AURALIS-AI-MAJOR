@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+backend/venv/
+backend/.venv/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Next.js Build
+frontend/.next/
+frontend/out/
+build/
+
+# Next.js local env files
+.env*.local
+.env
+
+# FastAPI / Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/.env
+backend/.pytest_cache
+backend/dist/
+
+# Production
+frontend/dist/
+
+# Misc
+.DS_Store
+*.pem
+.agent/
+.gemini/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+public/standalone-chatbot.html
+public/chatbot-widget.html
+!frontend/public/chatbot-widget.html

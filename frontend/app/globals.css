@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Base readability: size, line-height, anti-aliasing */
+body {
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Comfortable reading for paragraphs and descriptions */
+p {
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+}
+
+/* Cap line length for long text blocks */
+.readable {
+  max-width: 65ch;
+}
+.readable-wide {
+  max-width: 75ch;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AURALIS AI — Design tokens (dark-first, production dashboard)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Core foundation */
+  --auralis-background: #0B0F17;
+  --auralis-surface-1: #151B28;
+  --auralis-surface-2: #1E293B;
+  --auralis-border: #2D3A4F;
+  /* Typography */
+  --auralis-text-primary: #F8FAFC;
+  --auralis-text-secondary: #CBD5E1;
+  --auralis-text-muted: #64748B;
+  /* Brand accent — Cobalt & Platinum */
+  --auralis-accent-primary: #3B82F6;
+  --auralis-accent-primary-foreground: #FFFFFF;
+  --auralis-accent-secondary: #94A3B8;
+  /* Semantic status */
+  --auralis-success: #10B981;
+  --auralis-warning: #F59E0B;
+  --auralis-error: #EF4444;
+  --auralis-info: #6366F1;
+  /* Voice & agent states — Clean palette */
+  --auralis-voice-listening: #60A5FA;
+  --auralis-voice-thinking: #818CF8;
+  --auralis-voice-speaking: #C084FC;
+  /* Sidebar */
+  --auralis-sidebar-bg: #0F172A;
+  --auralis-sidebar-hover: rgba(255, 255, 255, 0.03);
+  --auralis-sidebar-active: rgba(59, 130, 246, 0.1);
+}
+
+/* Card / panel style (soft depth, no glass blur) */
+.auralis-card {
+  background: var(--auralis-surface-1);
+  border: 1px solid var(--auralis-border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease-in-out;
+}
+
+.auralis-card:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: var(--auralis-surface-2);
+}
+
+/* Range inputs use accent color */
+input[type="range"].accent-auralis-accent,
+input[type="range"] {
+  accent-color: var(--auralis-accent-primary);
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  /* Auralis dark theme: calm, intelligent, premium (Cobalt & Platinum) */
+  .dark {
+    --background: 220 25% 7%;
+    --foreground: 220 33% 92%;
+    --card: 220 36% 16%;
+    --card-foreground: 220 33% 92%;
+    --popover: 220 28% 11%;
+    --popover-foreground: 220 33% 92%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 28% 11%;
+    --secondary-foreground: 220 33% 92%;
+    --muted: 220 28% 16%;
+    --muted-foreground: 224 18% 51%;
+    --accent: 217 34% 22%;
+    --accent-foreground: 220 33% 92%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 34% 22%;
+    --input: 220 34% 22%;
+    --ring: 217 91% 60%;
+    --radius: 14px;
+    --chart-1: 217 91% 60%;
+    --chart-2: 213 93% 68%;
+    --chart-3: 142 71% 45%;
+    --chart-4: 258 91% 76%;
+    --chart-5: 48 96% 53%;
+    --sidebar-background: 220 40% 10%;
+    --sidebar-foreground: 220 33% 92%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 220 28% 16%;
+    --sidebar-accent-foreground: 220 33% 92%;
+    --sidebar-border: 220 34% 22%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground text-base;
+  }
+  /* Slightly larger body copy where used */
+  .text-auralis-text-primary,
+  .text-auralis-text-secondary {
+    @apply subpixel-antialiased;
+  }
+}
