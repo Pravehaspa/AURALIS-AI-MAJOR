@@ -10,7 +10,7 @@
 
 A cutting-edge voice AI platform combining **Google Gemini** conversational intelligence with **Murf AI** voice synthesis. Build and deploy intelligent voice agents in minutes.
 
----
+-----------
 
 ## ✨ Key Features
 
