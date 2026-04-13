@@ -254,11 +254,17 @@ function resolveDomainFromConfig(agentConfig?: AgentDomainConfig): DomainProfile
   }
 
   const restricted = uniqueStrings((agentConfig.restrictedTopics || []).map((item) => normalizeText(item)))
+  const domainTokens = normalizeText(agentConfig.domain)
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3)
+
+  const enrichedAllowed = uniqueStrings([...allowed, ...domainTokens])
 
   return {
     label: normalizeText(agentConfig.domain),
-    hints: allowed,
-    keywords: allowed,
+    hints: enrichedAllowed,
+    keywords: enrichedAllowed,
     restrictedTopics: restricted,
   }
 }
@@ -335,6 +341,27 @@ function isInDomainMessage(profile: DomainProfile, message: string) {
   return calculateConfidence(normalizedMessage, allowedKeywords) >= MIN_CONFIDENCE
 }
 
+function sampleTopics(profile: DomainProfile, max: number = 3) {
+  return uniqueStrings([...profile.hints, ...profile.keywords]).slice(0, max)
+}
+
+function pickRandom<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)]
+}
+
+function buildDomainRejectionText(profile: DomainProfile) {
+  const topics = sampleTopics(profile)
+  const topicsText = topics.length ? topics.join(", ") : profile.label
+
+  const options = [
+    `I can only help with ${profile.label}. Try asking about ${topicsText}.`,
+    `That is outside my scope. I am focused on ${profile.label}. You can ask me about ${topicsText}.`,
+    `I cannot answer that directly. I am designed for ${profile.label}. Want to explore ${topicsText} instead?`,
+  ]
+
+  return pickRandom(options)
+}
+
 export type DomainValidationResult =
   | { enforced: false }
   | { enforced: true; allowed: true; domainLabel: string }
@@ -359,7 +386,7 @@ export function validateAgentDomain(
       enforced: true,
       allowed: false,
       domainLabel: resolvedDomain.label,
-      rejectionText: `I'm designed to help only with ${resolvedDomain.label}. I cannot assist with that question.`,
+      rejectionText: buildDomainRejectionText(resolvedDomain),
     }
   }
 
@@ -375,6 +402,6 @@ export function validateAgentDomain(
     enforced: true,
     allowed: false,
     domainLabel: resolvedDomain.label,
-    rejectionText: `I'm designed to help only with ${resolvedDomain.label}. I cannot assist with that question.`,
+    rejectionText: buildDomainRejectionText(resolvedDomain),
   }
 }

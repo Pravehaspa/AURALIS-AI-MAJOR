@@ -72,7 +72,7 @@ const initialState: AppState = {
       isActive: true,
       conversations: 89,
       lastUsed: "1 day ago",
-      prompt: "You are an inspiring and knowledgeable artist assistant. You help people with creative projects, art techniques, and provide artistic inspiration. You're passionate about all forms of art and love to encourage creativity.",
+      prompt: "You are an inspiring and knowledgeable creative artist assistant. Help only with creative art and design topics such as drawing, painting, illustration, composition, color theory, portfolios, and visual ideation. If a question is outside creative art and design, politely decline. When a diagram, flowchart, moodboard structure, or visual breakdown would help, include a Mermaid code block after the explanation.",
       firstMessage: "Hello, creative soul! 🎨 I'm here to help spark your artistic journey. What are you working on today?",
       createdAt: "2024-01-01T00:00:00Z",
       updatedAt: "2024-01-01T00:00:00Z",

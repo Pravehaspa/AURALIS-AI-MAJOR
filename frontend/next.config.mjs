@@ -3,7 +3,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  turbopack: {},
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns"],
   },

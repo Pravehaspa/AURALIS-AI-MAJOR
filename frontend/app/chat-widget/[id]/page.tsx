@@ -20,6 +20,7 @@ import { useApp } from "@/lib/context"
 import { useToast } from "@/hooks/use-toast"
 import { readJsonResponse } from "@/lib/http"
 import { ensureAgentConfig } from "@/lib/agent-domain"
+import { ChatMessageContent } from "@/components/chat-message-content"
 
 interface ChatMessage {
   id: string
@@ -862,7 +863,7 @@ export default function ChatWidgetPage() {
                   : "bg-white/10 text-gray-100"
               }`}
             >
-              <p className="text-sm break-words">{message.text}</p>
+              <ChatMessageContent content={message.text} />
               {message.audioUrl && !message.isUser && (
                 <div className="mt-2 flex items-center gap-2">
                   <Button
