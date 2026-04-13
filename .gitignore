@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# build and coverage outputs
+dist/
+coverage/
+test-results/
+
+# caches
+.turbo/
+.eslintcache
+.vite/
+
+# local environment files
+.env
+.env.*
+!.env.example
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# vercel
+.vercel/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# local secret files in API/
+API/*.txt
+API/*.json
