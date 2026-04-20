@@ -2,7 +2,26 @@ import { ApiResponse, Agent, ChatMessage } from './types'
 import { readJsonResponse } from './http'
 import type { AgentConfigPayload } from './agent-domain'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+function resolveApiBaseUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (!raw) {
+    return ''
+  }
+
+  const sanitized = raw.replace(/["'`]/g, '').trim()
+  if (!sanitized) {
+    return ''
+  }
+
+  try {
+    // Keep only origin so accidental paths like /chat/2 do not break /api routes.
+    return new URL(sanitized).origin
+  } catch {
+    return ''
+  }
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
 
 class ApiClient {
   private async request<T>(
@@ -10,7 +29,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${API_BASE_URL}/api${endpoint}`
+      const url = API_BASE_URL ? `${API_BASE_URL}/api${endpoint}` : `/api${endpoint}`
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',

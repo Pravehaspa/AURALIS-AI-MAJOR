@@ -2,9 +2,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { getAuthSession } from "@/lib/auth"
+import { getRedisClient } from "@/lib/redis"
 import { upsertUserPreferences } from "@/lib/server/auth-repository"
 import { validateAgentDomain } from "@/lib/server/domain-guard"
-import { buildMemoryContext, inferPreferenceUpdate, storeChatMemory } from "@/lib/server/memory-repository"
+import { buildMemoryContext, extractPersonalSignalsFromMessage, inferPreferenceUpdate, storeChatMemory } from "@/lib/server/memory-repository"
 
 const GEMINI_TIMEOUT_MS = 25000
 const FALLBACK_MODELS = ["gemini-2.0-flash"]
@@ -25,9 +26,185 @@ const chatRequestSchema = z.object({
   message: z.string().min(1, "Message is required").max(5000, "Message too long"),
   agentPrompt: z.string().optional(),
   agentCategory: z.string().optional(),
+  botId: z.string().max(120).optional(),
   agentConfig: agentConfigSchema,
   history: z.array(chatMessageSchema).optional(),
 })
+
+const PREDEFINED_RESPONSES: Array<{ match: RegExp; response: string }> = [
+  {
+    match: /^(hi|hello|hey|good morning|good evening)\b/i,
+    response: "Hi. I am ready to help. Tell me your goal, and I will give you a focused plan right away.",
+  },
+  {
+    match: /^(who are you|what can you do)\??$/i,
+    response:
+      "I am your configured AI assistant. I can answer questions, guide decisions, and adapt to your preferred response style and conversation history.",
+  },
+]
+
+function normalizeForCache(value: string) {
+  return value.toLowerCase().trim().replace(/\s+/g, " ")
+}
+
+function buildCacheKey(input: {
+  userId: string
+  botId?: string
+  message: string
+  agentCategory?: string
+  responseStyle?: string | null
+  language?: string | null
+}) {
+  const keyParts = [
+    "chat",
+    input.userId,
+    input.botId || "default",
+    normalizeForCache(input.message),
+    normalizeForCache(input.agentCategory || ""),
+    normalizeForCache(input.responseStyle || ""),
+    normalizeForCache(input.language || ""),
+  ]
+
+  return keyParts.join(":")
+}
+
+function matchPredefinedResponse(message: string) {
+  for (const entry of PREDEFINED_RESPONSES) {
+    if (entry.match.test(message.trim())) {
+      return entry.response
+    }
+  }
+  return null
+}
+
+function resolveGeminiApiKey(botId?: string) {
+  if (botId === "2") {
+    return process.env.GOOGLE_AI_API_KEY_CHAT_2 || process.env.GOOGLE_AI_API_KEY
+  }
+
+  return process.env.GOOGLE_AI_API_KEY
+}
+
+function isSampleQuestionRequest(message: string) {
+  return /(sample questions?|example questions?|questions? to ask you|what can i ask you)/i.test(message)
+}
+
+function getSampleQuestions(input: { category?: string; allowedTopics?: string[]; assistantName?: string }) {
+  const category = (input.category || "").toLowerCase()
+  const allowed = (input.allowedTopics || []).map((item) => item.trim()).filter(Boolean)
+  const first = allowed.slice(0, 3)
+
+  const byCategory: Record<string, string[]> = {
+    wellness: [
+      "How can I calm down in 5 minutes?",
+      "Give me a simple bedtime routine for less stress.",
+      "What should I do when I feel overwhelmed at work?",
+      "Can you guide me through a short breathing exercise?",
+      "Help me build a low-stress weekly plan.",
+      "What are healthy ways to manage anxiety spikes?",
+    ],
+    creative: [
+      "Give me 5 concept ideas for my project.",
+      "How can I improve composition in this design?",
+      "Suggest a color palette for a calm brand.",
+      "Help me write a creative brief.",
+      "What art exercises can improve my style?",
+      "Can you turn my rough idea into a clear concept?",
+    ],
+    health: [
+      "Build me a beginner workout plan for 4 days.",
+      "What should I eat after training?",
+      "Give me a 20-minute home workout.",
+      "How can I improve recovery and sleep?",
+      "Help me set realistic fitness goals.",
+      "What habits improve consistency in exercise?",
+    ],
+    education: [
+      "Explain this topic in simple words.",
+      "Quiz me with 5 questions.",
+      "Help me make a 7-day revision plan.",
+      "How do I remember concepts faster?",
+      "Can you break this chapter into easy steps?",
+      "Teach me with examples and then test me.",
+    ],
+  }
+
+  if (byCategory[category]) {
+    return byCategory[category].slice(0, 6)
+  }
+
+  if (first.length > 0) {
+    return [
+      `Can you help me with ${first[0]}?`,
+      first[1] ? `Give me beginner guidance for ${first[1]}.` : "Give me a beginner-friendly step-by-step plan.",
+      first[2] ? `What common mistakes should I avoid in ${first[2]}?` : "What common mistakes should I avoid?",
+      "Can you summarize this in simple terms?",
+      "Can you give me a short action plan for today?",
+      "Can you ask me 3 clarifying questions before advising me?",
+    ].slice(0, 6)
+  }
+
+  return [
+    "What can you help me with right now?",
+    "Can you give me a simple step-by-step plan?",
+    "Can you explain this topic in plain language?",
+    "What should I do first if I am stuck?",
+    "Can you provide a concise checklist?",
+    "Can you give me examples to understand better?",
+  ]
+}
+
+function buildSampleQuestionsResponse(input: {
+  category?: string
+  allowedTopics?: string[]
+  assistantName?: string
+  userName?: string | null
+}) {
+  const questions = getSampleQuestions(input)
+  const namePrefix = input.userName ? `${input.userName}, ` : ""
+  const assistantLabel = input.assistantName ? ` for ${input.assistantName}` : ""
+
+  return [
+    `${namePrefix}here are sample questions you can ask${assistantLabel}:`,
+    ...questions.map((item, index) => `${index + 1}. ${item}`),
+  ].join("\n")
+}
+
+function buildPersonalAcknowledgement(input: {
+  name?: string | null
+  goals: string[]
+  preferences: string[]
+  interests: string[]
+}) {
+  if (input.name) {
+    return `Nice to meet you, ${input.name}. I will remember your name and personalize our chat.`
+  }
+
+  if (input.goals.length) {
+    return `Great goal. I will keep this in mind: ${input.goals[0]}.`
+  }
+
+  if (input.preferences.length) {
+    return `Thanks for sharing your preference. I will adapt to: ${input.preferences[0]}.`
+  }
+
+  if (input.interests.length) {
+    return `Great, I noted your interest in ${input.interests[0]}.`
+  }
+
+  return null
+}
+
+function isSimplePersonalInput(message: string) {
+  const normalized = message.trim().toLowerCase()
+  return (
+    /^(hi|hello|hey|good morning|good evening)\b/.test(normalized) ||
+    /\bmy name is\b/.test(normalized) ||
+    /\bcall me\b/.test(normalized) ||
+    /\bmy goal is\b/.test(normalized) ||
+    /\bi (want to|am trying to|prefer|like|am interested in|'m interested in)\b/.test(normalized)
+  )
+}
 
 function buildPrompt(
   message: string,
@@ -38,6 +215,12 @@ function buildPrompt(
     responseStyle?: string | null
     language?: string | null
     relevantMemory?: Array<{ message: string; response: string }>
+    profile?: {
+      name: string | null
+      goals: string[]
+      preferences: string[]
+      interests: string[]
+    }
   },
 ) {
   const sections: string[] = []
@@ -51,6 +234,13 @@ function buildPrompt(
     "Answer the user's question directly. If a diagram, flowchart, or visual structure would help, include a Mermaid code block after the explanation. If the user explicitly asks for only a diagram, output only Mermaid syntax in a fenced mermaid block.",
   )
   sections.push("Provide a concrete answer first. Ask at most one concise follow-up question only when needed.")
+  sections.push(
+    "Be natural and conversational. Never reject normal greetings or simple personal details like name, goals, or preferences. Acknowledge personal details and use them in future responses.",
+  )
+  sections.push(
+    "If the user asks for sample questions, provide 5-7 practical sample questions tailored to this assistant's purpose. Keep responses concise and avoid repeating the same wording.",
+  )
+  sections.push("If you are uncertain, say 'I'm not certain' instead of guessing.")
 
   if (agentCategory?.trim()) {
     sections.push(`Category: ${agentCategory.trim()}`)
@@ -72,6 +262,26 @@ function buildPrompt(
       .map((item) => `User said: ${item.message}\nAssistant replied: ${item.response}`)
       .join("\n\n")
     sections.push(`Relevant memory:\n${memoryText}`)
+  }
+
+  if (memoryContext?.profile) {
+    const profileParts: string[] = []
+    if (memoryContext.profile.name) {
+      profileParts.push(`name: ${memoryContext.profile.name}`)
+    }
+    if (memoryContext.profile.goals.length) {
+      profileParts.push(`goals: ${memoryContext.profile.goals.join(", ")}`)
+    }
+    if (memoryContext.profile.preferences.length) {
+      profileParts.push(`preferences: ${memoryContext.profile.preferences.join(", ")}`)
+    }
+    if (memoryContext.profile.interests.length) {
+      profileParts.push(`interests: ${memoryContext.profile.interests.join(", ")}`)
+    }
+
+    if (profileParts.length) {
+      sections.push(`Known user profile: ${profileParts.join("; ")}`)
+    }
   }
 
   if (history?.length) {
@@ -245,19 +455,86 @@ export async function handleChatRequest(request: Request) {
       )
     }
 
-    const { message, agentPrompt, agentCategory, agentConfig, history } = payload.data
+    const { message, agentPrompt, agentCategory, agentConfig, history, botId } = payload.data
     const domainValidation = validateAgentDomain(message, agentCategory, agentPrompt, agentConfig)
     const userId = session?.user?.id || null
-    const memoryContext = userId ? await buildMemoryContext(userId, message) : null
+    const memoryContext = userId ? await buildMemoryContext(userId, message, botId) : null
     const inferredPreferences = userId ? inferPreferenceUpdate(message) : {}
+    const personalSignals = extractPersonalSignalsFromMessage(message)
+
+    const predefined = matchPredefinedResponse(message)
+    if (predefined) {
+      return NextResponse.json({ success: true, text: predefined, model: "predefined" }, { headers: { "Cache-Control": "no-store" } })
+    }
+
+    if (isSampleQuestionRequest(message)) {
+      const text = buildSampleQuestionsResponse({
+        category: agentCategory,
+        allowedTopics: agentConfig.allowedTopics,
+        assistantName: agentConfig.name,
+        userName: memoryContext?.profile?.name || personalSignals.name || null,
+      })
+
+      if (userId) {
+        await storeChatMemory({
+          userId,
+          botId,
+          message,
+          response: text,
+          isImportant: true,
+        })
+      }
+
+      return NextResponse.json({ success: true, text, model: "sample-questions" }, { headers: { "Cache-Control": "no-store" } })
+    }
+
+    if (isSimplePersonalInput(message)) {
+      const acknowledgement = buildPersonalAcknowledgement(personalSignals)
+      if (acknowledgement) {
+        if (userId) {
+          await storeChatMemory({
+            userId,
+            botId,
+            message,
+            response: acknowledgement,
+            isImportant: true,
+          })
+        }
+
+        return NextResponse.json({ success: true, text: acknowledgement, model: "personal-ack" }, { headers: { "Cache-Control": "no-store" } })
+      }
+    }
 
     if (domainValidation.enforced && !domainValidation.allowed) {
       return NextResponse.json({ success: true, text: domainValidation.rejectionText, model: "domain-guard" })
     }
 
-    const apiKey = process.env.GOOGLE_AI_API_KEY
+    const redis = getRedisClient()
+    const cacheKey =
+      userId
+        ? buildCacheKey({
+            userId,
+            botId,
+            message,
+            agentCategory,
+            responseStyle: memoryContext?.preferences?.response_style || null,
+            language: memoryContext?.preferences?.language || null,
+          })
+        : null
+
+    if (redis && cacheKey) {
+      const cached = await redis.get<string>(cacheKey)
+      if (cached) {
+        return NextResponse.json(
+          { success: true, text: cached, model: "redis-cache", memoryEnabled: Boolean(userId) },
+          { headers: { "Cache-Control": "no-store" } },
+        )
+      }
+    }
+
+    const apiKey = resolveGeminiApiKey(botId)
     if (!apiKey) {
-      return jsonError(500, "Missing Environment Variable", "Server is missing GOOGLE_AI_API_KEY")
+      return jsonError(500, "Missing Environment Variable", "Server is missing GOOGLE_AI_API_KEY (or GOOGLE_AI_API_KEY_CHAT_2 for bot 2)")
     }
 
     const prompt = buildPrompt(message, agentPrompt, agentCategory, history, memoryContext || undefined)
@@ -302,10 +579,15 @@ export async function handleChatRequest(request: Request) {
 
       await storeChatMemory({
         userId,
+        botId,
         message,
         response: text,
         isImportant: true,
       })
+    }
+
+    if (redis && cacheKey) {
+      await redis.set(cacheKey, text, { ex: 60 * 30 }).catch(() => null)
     }
 
     return NextResponse.json(
@@ -321,7 +603,7 @@ export async function handleChatRequest(request: Request) {
     const session = await getAuthSession().catch(() => null)
     const userId = session?.user?.id || null
     if (userId) {
-      const cachedResponse = await buildMemoryContext(userId, "").then((context) => context.cachedResponse).catch(() => null)
+      const cachedResponse = await buildMemoryContext(userId, "", undefined).then((context) => context.cachedResponse).catch(() => null)
       if (cachedResponse) {
         return NextResponse.json(
           { success: true, text: cachedResponse, model: "memory-fallback" },

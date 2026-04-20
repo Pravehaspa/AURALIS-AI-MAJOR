@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import Image from "next/image"
+import { Check, Copy, Mic, Sparkles } from "lucide-react"
 import { useApp } from "@/lib/context"
 import { readJsonResponse } from "@/lib/http"
 import { ensureAgentConfig } from "@/lib/agent-domain"
@@ -81,6 +82,8 @@ export default function ChatPage() {
   const [speechError, setSpeechError] = useState<string | null>(null)
   const [silenceFinalizeCountdown, setSilenceFinalizeCountdown] = useState<number | null>(null)
   const [autoSendCountdown, setAutoSendCountdown] = useState<number | null>(null)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [isStreamingResponse, setIsStreamingResponse] = useState(false)
 
   const agentId = params.id as string
   const agent = agents.find((item) => item.id === agentId)
@@ -109,11 +112,64 @@ export default function ChatPage() {
     [agent?.firstMessage],
   )
 
+  const samplePrompts = useMemo(() => {
+    if (agent?.samplePrompts?.length) {
+      return agent.samplePrompts.slice(0, 4)
+    }
+
+    const byCategory: Record<string, string[]> = {
+      Wellness: [
+        "I feel stressed. Give me a simple reset routine.",
+        "How do I calm down before sleep?",
+        "Help me make a no-burnout weekly plan.",
+      ],
+      Creative: [
+        "Give me concept ideas for a startup logo.",
+        "How can I improve composition in my poster?",
+        "Suggest 3 color palettes for a wellness brand.",
+      ],
+      Health: [
+        "Create a beginner 4-day workout plan.",
+        "What should I eat for muscle recovery?",
+        "Give me a 20-minute home workout.",
+      ],
+      Education: [
+        "Explain this topic in simple words.",
+        "Quiz me with 5 questions.",
+        "Make a 7-day revision schedule.",
+      ],
+    }
+
+    return byCategory[agent?.category || ""] || ["What can you help me with?"]
+  }, [agent?.samplePrompts, agent?.category])
+
   useEffect(() => {
+    const historyKey = `chat_history_${agentId}`
+    const messagesKey = `chat_messages_${agentId}`
     const initialHistory: HistoryMessage[] = [
       { role: "user", parts: [`System instruction: ${systemPrompt}`] },
       { role: "model", parts: [firstMessage] },
     ]
+
+    try {
+      const storedHistory = window.localStorage.getItem(historyKey)
+      const storedMessages = window.localStorage.getItem(messagesKey)
+
+      if (storedHistory && storedMessages) {
+        const parsedHistory = JSON.parse(storedHistory) as HistoryMessage[]
+        const parsedMessages = JSON.parse(storedMessages) as Array<ChatMessage & { timestamp: string }>
+        setChatHistory(parsedHistory)
+        setMessages(
+          parsedMessages.map((item) => ({
+            ...item,
+            timestamp: new Date(item.timestamp),
+          })),
+        )
+        return
+      }
+    } catch {
+      // Ignore corrupted local state and reset.
+    }
 
     setChatHistory(initialHistory)
     setMessages([
@@ -124,17 +180,32 @@ export default function ChatPage() {
         timestamp: new Date(),
       },
     ])
-  }, [systemPrompt, firstMessage])
+  }, [systemPrompt, firstMessage, agentId])
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      })
     }
   }
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  useEffect(() => {
+    if (!agentId || messages.length === 0) {
+      return
+    }
+
+    const historyKey = `chat_history_${agentId}`
+    const messagesKey = `chat_messages_${agentId}`
+
+    window.localStorage.setItem(historyKey, JSON.stringify(chatHistory))
+    window.localStorage.setItem(messagesKey, JSON.stringify(messages))
+  }, [agentId, chatHistory, messages])
 
   useEffect(() => {
     runtimeStateRef.current = {
@@ -436,6 +507,7 @@ export default function ChatPage() {
         message: trimmedHistory[trimmedHistory.length - 1]?.parts?.[0] || "",
         agentPrompt: systemPrompt,
         agentCategory: agent?.category || "",
+        botId: agentId,
         agentConfig: agent ? ensureAgentConfig(agent) : undefined,
         history: trimmedHistory,
       }),
@@ -447,6 +519,43 @@ export default function ChatPage() {
     }
 
     return payload.text as string
+  }
+
+  async function streamAssistantMessage(messageId: string, fullText: string) {
+    setIsStreamingResponse(true)
+    setMessages((prev) => [...prev, { id: messageId, text: "", isUser: false, timestamp: new Date() }])
+
+    const chunkSize = fullText.length > 800 ? 18 : 10
+    let cursor = 0
+
+    await new Promise<void>((resolve) => {
+      const timer = window.setInterval(() => {
+        cursor = Math.min(cursor + chunkSize, fullText.length)
+        const partial = fullText.slice(0, cursor)
+        setMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, text: partial } : msg)))
+
+        if (cursor >= fullText.length) {
+          clearInterval(timer)
+          resolve()
+        }
+      }, 18)
+    })
+
+    setIsStreamingResponse(false)
+  }
+
+  async function copyMessage(text: string, messageId: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedMessageId(messageId)
+      setTimeout(() => setCopiedMessageId((current) => (current === messageId ? null : current)), 1200)
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Unable to copy response right now.",
+        variant: "destructive",
+      })
+    }
   }
 
   async function requestSpeech(text: string) {
@@ -516,19 +625,13 @@ export default function ChatPage() {
 
       setChatHistory(finalHistory)
 
-      const aiMessage: ChatMessage = {
-        id: `${Date.now()}-ai`,
-        text: aiText,
-        isUser: false,
-        timestamp: new Date(),
-      }
-
-      setMessages((prev) => [...prev, aiMessage])
+      const aiMessageId = `${Date.now()}-ai`
+      await streamAssistantMessage(aiMessageId, aiText)
       setIsGenerating(false)
       setIsGeneratingAudio(true)
 
       const audioUrl = await requestSpeech(aiText)
-      setMessages((prev) => prev.map((msg) => (msg.id === aiMessage.id ? { ...msg, audioUrl } : msg)))
+      setMessages((prev) => prev.map((msg) => (msg.id === aiMessageId ? { ...msg, audioUrl } : msg)))
       setIsGeneratingAudio(false)
       setSpeechStatus("idle")
 
@@ -539,7 +642,7 @@ export default function ChatPage() {
           if (!isAutoModeRef.current) {
             return
           }
-          void playMessageAudio(aiMessage.id)
+          void playMessageAudio(aiMessageId)
         }, 250)
       }
     } catch (error) {
@@ -852,6 +955,17 @@ export default function ChatPage() {
                   }`}
                 >
                   <ChatMessageContent content={message.text} />
+                  {!message.isUser && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => void copyMessage(message.text, message.id)}
+                        className="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs text-gray-200 hover:bg-white/20 transition-colors"
+                      >
+                        {copiedMessageId === message.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copiedMessageId === message.id ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                  )}
                   {message.audioUrl && !message.isUser && (
                     <div className="mt-2">
                       <div className="flex items-center gap-2">
@@ -932,7 +1046,10 @@ export default function ChatPage() {
                   🤖
                 </div>
                 <div className="bg-white/10 text-gray-100 rounded-lg p-3">
-                  <p className="text-sm">{isGenerating ? "Thinking..." : "Preparing voice..."}</p>
+                  <p className="text-sm inline-flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 animate-pulse" />
+                    {isGenerating ? "Thinking..." : isStreamingResponse ? "Streaming response..." : "Preparing voice..."}
+                  </p>
                 </div>
               </div>
             )}
@@ -1032,6 +1149,18 @@ export default function ChatPage() {
               </div>
             )}
 
+            <div className="mb-3 flex flex-wrap gap-2">
+              {samplePrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => setInput(prompt)}
+                  className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-gray-200 transition-all hover:border-blue-300 hover:bg-blue-500/20"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+
             <div className="flex gap-2">
               <textarea
                 value={input}
@@ -1041,6 +1170,25 @@ export default function ChatPage() {
                 className="flex-1 bg-black/20 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-gray-400 resize-none"
                 rows={1}
               />
+              <button
+                onClick={() => {
+                  if (isListening || isListeningPaused) {
+                    finalizeSpeechInput()
+                  } else {
+                    void startListening()
+                  }
+                }}
+                disabled={!isSpeechSupported || isGenerating || isGeneratingAudio || anyAudioPlaying}
+                className={`px-3 py-2 rounded-lg border transition-colors ${
+                  isListening || isListeningPaused
+                    ? "border-emerald-400 bg-emerald-500/20 text-emerald-100"
+                    : "border-white/20 bg-black/20 text-gray-300 hover:bg-white/10"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                aria-label="Toggle microphone"
+                title={isListening || isListeningPaused ? "Stop microphone" : "Start microphone"}
+              >
+                <Mic className="h-4 w-4" />
+              </button>
               <button
                 onClick={() => void sendMessage(input)}
                 disabled={isGenerating || isGeneratingAudio || !input.trim()}

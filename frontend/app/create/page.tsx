@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,8 @@ const voiceOptions = [
   { id: "en-AU-sarah", name: "Sarah", style: "Friendly", accent: "Australian", gender: "Female" },
   { id: "es-MX-valeria", name: "Valeria", style: "Expressive", accent: "Mexican", gender: "Female" },
 ]
+
+const toneOptions = ["friendly", "professional", "strict"] as const
 
 const promptTemplates = [
   {
@@ -80,9 +82,12 @@ export default function CreateAgent() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    purpose: "",
+    tone: "friendly",
     domain: "",
     allowedTopics: "",
     restrictedTopics: "",
+    knowledgeText: "",
     prompt: "",
     firstMessage: "",
     voiceId: "",
@@ -104,10 +109,39 @@ export default function CreateAgent() {
       firstMessage: template.firstMessage,
       name: template.name,
       description: `AI assistant specialized in ${template.name.toLowerCase()}`,
+      purpose: `Help users with ${template.domain}`,
+      tone: "friendly",
       domain: template.domain,
       allowedTopics: template.allowedTopics,
       restrictedTopics: "harmful content, illegal acts",
     }))
+  }
+
+  const buildOptimizedPrompt = () => {
+    const toneGuide =
+      formData.tone === "professional"
+        ? "Use a professional, clear, and structured tone."
+        : formData.tone === "strict"
+          ? "Use a strict, direct, and policy-aware tone with clear boundaries."
+          : "Use a warm, friendly, and conversational tone."
+
+    const knowledgeSection = formData.knowledgeText.trim()
+      ? `Use this additional knowledge context when relevant:\n${formData.knowledgeText.trim()}`
+      : ""
+
+    return [
+      `You are ${formData.name || "an AI assistant"}.`,
+      `Primary purpose: ${formData.purpose || "Help users effectively within the configured domain"}.`,
+      `Domain: ${formData.domain || "general assistance"}.`,
+      toneGuide,
+      `Allowed topics: ${formData.allowedTopics || "general"}.`,
+      formData.restrictedTopics ? `Restricted topics: ${formData.restrictedTopics}. Politely refuse these.` : "",
+      "Use conversation history and user preferences to personalize answers and avoid repeated questions.",
+      "If context is missing, ask one concise clarifying question.",
+      knowledgeSection,
+    ]
+      .filter(Boolean)
+      .join("\n\n")
   }
 
   const parseTopics = (input: string) =>
@@ -166,8 +200,44 @@ export default function CreateAgent() {
     }
   }
 
+  const handleKnowledgeFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (file.size > 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload a file smaller than 1MB.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const text = await file.text()
+      setFormData((prev) => ({
+        ...prev,
+        knowledgeText: [prev.knowledgeText, text].filter(Boolean).join("\n\n").slice(0, 12000),
+      }))
+      toast({
+        title: "Knowledge imported",
+        description: `${file.name} has been added to bot knowledge.`,
+      })
+    } catch {
+      toast({
+        title: "Import failed",
+        description: "Could not read this file. Try plain text, markdown, or JSON.",
+        variant: "destructive",
+      })
+    } finally {
+      event.target.value = ""
+    }
+  }
+
   const handleSave = async () => {
-    if (!formData.name || !formData.description || !formData.domain || !formData.allowedTopics || !formData.prompt || !formData.firstMessage || !formData.voiceId) {
+    if (!formData.name || !formData.description || !formData.domain || !formData.allowedTopics || !formData.firstMessage || !formData.voiceId) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields, including domain and allowed topics.",
@@ -178,18 +248,24 @@ export default function CreateAgent() {
 
     setIsCreating(true)
     try {
+      const optimizedPrompt = formData.prompt.trim() || buildOptimizedPrompt()
+
       const success = await createAgent({
         name: formData.name,
         description: formData.description,
         category: "Custom",
+        purpose: formData.purpose,
+        tone: formData.tone as "friendly" | "professional" | "strict",
         domain: formData.domain,
         allowedTopics: parseTopics(formData.allowedTopics),
         restrictedTopics: parseTopics(formData.restrictedTopics),
+        knowledgeText: formData.knowledgeText.trim() || undefined,
+        samplePrompts: parseTopics(formData.allowedTopics).slice(0, 4).map((topic) => `Help me with ${topic}`),
         voiceId: formData.voiceId,
         isActive: true,
         conversations: 0,
         lastUsed: "Never",
-        prompt: formData.prompt,
+        prompt: optimizedPrompt,
         firstMessage: formData.firstMessage,
       })
 
@@ -320,6 +396,36 @@ export default function CreateAgent() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="purpose" className="text-gray-300">
+                    Purpose
+                  </Label>
+                  <Input
+                    id="purpose"
+                    value={formData.purpose}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, purpose: e.target.value }))}
+                    placeholder="e.g., help users prepare for technical interviews"
+                    className="bg-black/20 border-white/20 text-white placeholder:text-gray-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Tone</Label>
+                  <Select
+                    value={formData.tone}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, tone: value }))}
+                  >
+                    <SelectTrigger className="bg-black/20 border-white/20 text-white">
+                      <SelectValue placeholder="Choose tone" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black/90 border-white/20">
+                      {toneOptions.map((tone) => (
+                        <SelectItem key={tone} value={tone} className="text-white hover:bg-white/10 capitalize">
+                          {tone}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="domain" className="text-gray-300">
                     Domain (Required)
                   </Label>
@@ -394,11 +500,38 @@ export default function CreateAgent() {
                   <Label htmlFor="prompt" className="text-gray-300">
                     System Prompt
                   </Label>
+                  <Button
+                    variant="outline"
+                    onClick={() => setFormData((prev) => ({ ...prev, prompt: buildOptimizedPrompt() }))}
+                    className="border-white/20 text-gray-300 hover:bg-white/10 bg-transparent"
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Auto-generate optimized prompt
+                  </Button>
                   <Textarea
                     id="prompt"
                     value={formData.prompt}
                     onChange={(e) => setFormData((prev) => ({ ...prev, prompt: e.target.value }))}
                     placeholder="Define your agent's personality, role, and behavior..."
+                    className="bg-black/20 border-white/20 text-white placeholder:text-gray-500 min-h-[120px]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="knowledgeText" className="text-gray-300">
+                    Optional Knowledge Input
+                  </Label>
+                  <Input
+                    type="file"
+                    accept=".txt,.md,.json,.csv"
+                    onChange={handleKnowledgeFileUpload}
+                    className="bg-black/20 border-white/20 text-white file:bg-white/10 file:border-0 file:text-gray-200"
+                  />
+                  <Textarea
+                    id="knowledgeText"
+                    value={formData.knowledgeText}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, knowledgeText: e.target.value }))}
+                    placeholder="Paste proprietary context, policies, FAQ data, or domain notes..."
                     className="bg-black/20 border-white/20 text-white placeholder:text-gray-500 min-h-[120px]"
                   />
                 </div>

@@ -16,9 +16,14 @@ export interface Agent {
   description: string
   category: string
   domain: string
+  purpose?: string
+  tone?: 'friendly' | 'professional' | 'strict'
   allowedTopics: string[]
   restrictedTopics?: string[]
   voiceId: string
+  knowledgeText?: string
+  samplePrompts?: string[]
+  isDefault?: boolean
   isActive: boolean
   conversations: number
   lastUsed: string

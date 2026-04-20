@@ -5,6 +5,7 @@ import { Agent, User, Conversation, Analytics, AppSettings } from './types'
 import { storage } from './storage'
 import { api } from './api'
 import { normalizeAgent } from './agent-domain'
+import { DEFAULT_AGENTS } from './default-agents'
 import { getSupabaseBrowserClient, getSupabaseBrowserEnvError } from './supabase/client'
 
 // State interface
@@ -42,76 +43,7 @@ type AppAction =
 // Initial state
 const initialState: AppState = {
   user: null,
-  agents: [
-    {
-      id: "1",
-      name: "Stress-Buster Buddy",
-      description: "Your empathetic companion for stress relief and mental wellness support",
-      category: "Wellness",
-      domain: "stress management and emotional wellness",
-      allowedTopics: ["stress", "anxiety", "calm", "breathing", "mindfulness", "burnout", "sleep"],
-      restrictedTopics: ["self-harm instructions", "violence instructions", "illegal acts"],
-      voiceId: "en-US-terrell",
-      isActive: true,
-      conversations: 127,
-      lastUsed: "2 hours ago",
-      prompt: "You are a talkative, empathetic assistant bot. Your main job is to help people reduce stress by chatting with them, giving them calming advice, jokes, or friendly motivation. You talk in a relaxed, human tone, like a good friend who really listens.",
-      firstMessage: "Hey there 😊 I'm your little stress-buster buddy! What's on your mind today?",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z",
-    },
-    {
-      id: "2",
-      name: "Creative Artist",
-      description: "Your inspiring guide for artistic projects and creative inspiration",
-      category: "Creative",
-      domain: "creative art and design",
-      allowedTopics: ["art", "design", "drawing", "painting", "illustration", "color theory", "portfolio"],
-      restrictedTopics: ["harmful content", "illegal acts"],
-      voiceId: "en-US-natalie",
-      isActive: true,
-      conversations: 89,
-      lastUsed: "1 day ago",
-      prompt: "You are an inspiring and knowledgeable creative artist assistant. Help only with creative art and design topics such as drawing, painting, illustration, composition, color theory, portfolios, and visual ideation. If a question is outside creative art and design, politely decline. When a diagram, flowchart, moodboard structure, or visual breakdown would help, include a Mermaid code block after the explanation.",
-      firstMessage: "Hello, creative soul! 🎨 I'm here to help spark your artistic journey. What are you working on today?",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z",
-    },
-    {
-      id: "3",
-      name: "Fitness Coach",
-      description: "Your motivational trainer for achieving health and fitness goals",
-      category: "Health",
-      domain: "fitness, exercise, and healthy habits",
-      allowedTopics: ["fitness", "workout", "exercise", "nutrition", "hydration", "sleep recovery"],
-      restrictedTopics: ["unsafe drug use", "extreme harm", "illegal acts"],
-      voiceId: "en-US-ken",
-      isActive: false,
-      conversations: 45,
-      lastUsed: "3 days ago",
-      prompt: "You are an energetic and motivational fitness coach. You provide workout advice, nutrition tips, and keep people motivated on their fitness journey. You're encouraging but also realistic about goals.",
-      firstMessage: "Hey champion! 💪 Ready to crush your fitness goals today? Let's get moving!",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z",
-    },
-    {
-      id: "4",
-      name: "Study Buddy",
-      description: "Your patient learning companion for academic success",
-      category: "Education",
-      domain: "studying and education",
-      allowedTopics: ["study", "homework", "exam prep", "math", "science", "history", "revision"],
-      restrictedTopics: ["cheating", "exam fraud", "harmful content"],
-      voiceId: "en-US-julia",
-      isActive: true,
-      conversations: 203,
-      lastUsed: "5 minutes ago",
-      prompt: "You are a helpful and patient study companion. You help students with learning, provide study tips, explain concepts clearly, and keep them motivated. You make learning fun and engaging.",
-      firstMessage: "Hi there, scholar! 📚 Ready to dive into some learning? What subject are we tackling today?",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:00Z",
-    },
-  ],
+  agents: DEFAULT_AGENTS,
   conversations: [],
   analytics: {
     totalConversations: 456,
@@ -397,88 +329,19 @@ export function AppProvider({ children }: AppProviderProps) {
   const loadAgents = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true })
     try {
-      // Load from local storage instead of external API
-      const agents = storage.getAgents()
-      
-      // If no agents in storage, add some default ones
-      if (agents.length === 0) {
-        const defaultAgents: Agent[] = [
-          {
-            id: "1",
-            name: "Stress-Buster Buddy",
-            description: "Your empathetic companion for stress relief and mental wellness support",
-            category: "Wellness",
-            domain: "stress management and emotional wellness",
-            allowedTopics: ["stress", "anxiety", "calm", "breathing", "mindfulness", "burnout", "sleep"],
-            restrictedTopics: ["self-harm instructions", "violence instructions", "illegal acts"],
-            voiceId: "en-US-terrell",
-            isActive: true,
-            conversations: 127,
-            lastUsed: "2 hours ago",
-            prompt: "You are a talkative, empathetic assistant bot. Your main job is to help people reduce stress by chatting with them, giving them calming advice, jokes, or friendly motivation. You talk in a relaxed, human tone, like a good friend who really listens.",
-            firstMessage: "Hey there 😊 I'm your little stress-buster buddy! What's on your mind today?",
-            createdAt: "2024-01-01T00:00:00Z",
-            updatedAt: "2024-01-01T00:00:00Z",
-          },
-          {
-            id: "2",
-            name: "Creative Artist",
-            description: "Your inspiring guide for artistic projects and creative inspiration",
-            category: "Creative",
-            domain: "creative art and design",
-            allowedTopics: ["art", "design", "drawing", "painting", "illustration", "color theory", "portfolio"],
-            restrictedTopics: ["harmful content", "illegal acts"],
-            voiceId: "en-US-natalie",
-            isActive: true,
-            conversations: 89,
-            lastUsed: "1 day ago",
-            prompt: "You are an inspiring and knowledgeable artist assistant. You help people with creative projects, art techniques, and provide artistic inspiration. You're passionate about all forms of art and love to encourage creativity.",
-            firstMessage: "Hello, creative soul! 🎨 I'm here to help spark your artistic journey. What are you working on today?",
-            createdAt: "2024-01-01T00:00:00Z",
-            updatedAt: "2024-01-01T00:00:00Z",
-          },
-          {
-            id: "3",
-            name: "Fitness Coach",
-            description: "Your motivational trainer for achieving health and fitness goals",
-            category: "Health",
-            domain: "fitness, exercise, and healthy habits",
-            allowedTopics: ["fitness", "workout", "exercise", "nutrition", "hydration", "sleep recovery"],
-            restrictedTopics: ["unsafe drug use", "extreme harm", "illegal acts"],
-            voiceId: "en-US-ken",
-            isActive: false,
-            conversations: 45,
-            lastUsed: "3 days ago",
-            prompt: "You are an energetic and motivational fitness coach. You provide workout advice, nutrition tips, and keep people motivated on their fitness journey. You're encouraging but also realistic about goals.",
-            firstMessage: "Hey champion! 💪 Ready to crush your fitness goals today? Let's get moving!",
-            createdAt: "2024-01-01T00:00:00Z",
-            updatedAt: "2024-01-01T00:00:00Z",
-          },
-          {
-            id: "4",
-            name: "Study Buddy",
-            description: "Your patient learning companion for academic success",
-            category: "Education",
-            domain: "studying and education",
-            allowedTopics: ["study", "homework", "exam prep", "math", "science", "history", "revision"],
-            restrictedTopics: ["cheating", "exam fraud", "harmful content"],
-            voiceId: "en-US-julia",
-            isActive: true,
-            conversations: 203,
-            lastUsed: "5 minutes ago",
-            prompt: "You are a helpful and patient study companion. You help students with learning, provide study tips, explain concepts clearly, and keep them motivated. You make learning fun and engaging.",
-            firstMessage: "Hi there, scholar! 📚 Ready to dive into some learning? What subject are we tackling today?",
-            createdAt: "2024-01-01T00:00:00Z",
-            updatedAt: "2024-01-01T00:00:00Z",
-          },
-        ]
-        
-        // Save default agents to storage
-        const normalizedDefaults = defaultAgents.map(normalizeAgent)
-        storage.saveAgents(normalizedDefaults)
-        dispatch({ type: 'SET_AGENTS', payload: normalizedDefaults })
+      const response = await api.getAgents()
+      if (response.success && response.data) {
+        const normalized = response.data.map(normalizeAgent)
+        storage.saveAgents(normalized)
+        dispatch({ type: 'SET_AGENTS', payload: normalized })
+        return
+      }
+
+      const cached = storage.getAgents()
+      if (cached.length > 0) {
+        dispatch({ type: 'SET_AGENTS', payload: cached.map(normalizeAgent) })
       } else {
-        dispatch({ type: 'SET_AGENTS', payload: agents.map(normalizeAgent) })
+        dispatch({ type: 'SET_AGENTS', payload: DEFAULT_AGENTS.map(normalizeAgent) })
       }
     } catch (error) {
       console.error('Error loading agents:', error)
@@ -490,21 +353,13 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const createAgent = useCallback(async (agentData: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
     try {
-      const newAgent: Agent = normalizeAgent({
-        ...agentData,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      
-      // Add to state
-      dispatch({ type: 'ADD_AGENT', payload: newAgent })
-      
-      // Save to storage
-      const currentAgents = storage.getAgents()
-      const updatedAgents = [...currentAgents, newAgent]
-      storage.saveAgents(updatedAgents)
-      
+      const response = await api.createAgent(agentData)
+      if (!response.success || !response.data) {
+        dispatch({ type: 'SET_ERROR', payload: response.error || 'Failed to create agent' })
+        return false
+      }
+
+      dispatch({ type: 'ADD_AGENT', payload: normalizeAgent(response.data) })
       return true
     } catch (error) {
       console.error('Error creating agent:', error)
@@ -515,7 +370,13 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const updateAgent = useCallback(async (id: string, updates: Partial<Agent>): Promise<boolean> => {
     try {
-      dispatch({ type: 'UPDATE_AGENT', payload: { id, updates } })
+      const response = await api.updateAgent(id, updates)
+      if (!response.success || !response.data) {
+        dispatch({ type: 'SET_ERROR', payload: response.error || 'Failed to update agent' })
+        return false
+      }
+
+      dispatch({ type: 'UPDATE_AGENT', payload: { id, updates: normalizeAgent(response.data) } })
       return true
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update agent' })
@@ -525,6 +386,17 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const deleteAgent = useCallback(async (id: string): Promise<boolean> => {
     try {
+      if (id.startsWith('default-')) {
+        dispatch({ type: 'SET_ERROR', payload: 'Default agents cannot be deleted' })
+        return false
+      }
+
+      const response = await api.deleteAgent(id)
+      if (!response.success) {
+        dispatch({ type: 'SET_ERROR', payload: response.error || 'Failed to delete agent' })
+        return false
+      }
+
       dispatch({ type: 'DELETE_AGENT', payload: id })
       return true
     } catch (error) {

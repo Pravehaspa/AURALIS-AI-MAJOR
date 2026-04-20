@@ -144,6 +144,26 @@ const DOMAIN_PROFILES: DomainProfile[] = [
 
 const GENERIC_ALLOWED_PHRASES = ["hi", "hello", "hey", "good morning", "good evening"]
 
+const PERSONAL_ALLOWED_PATTERNS: RegExp[] = [
+  /\bmy name is\b/i,
+  /\bcall me\b/i,
+  /\bmy goal is\b/i,
+  /\bi want to\b/i,
+  /\bi prefer\b/i,
+  /\bi like\b/i,
+  /\bi am interested in\b/i,
+  /\bi'm interested in\b/i,
+  /^thanks?\b/i,
+  /^thank you\b/i,
+]
+
+const SAMPLE_QUESTION_PATTERNS: RegExp[] = [
+  /sample questions?/i,
+  /example questions?/i,
+  /questions? to ask you/i,
+  /what can i ask you/i,
+]
+
 const GLOBAL_UNSAFE_KEYWORDS = [
   "how to make a bomb",
   "build a bomb",
@@ -319,6 +339,14 @@ function isUnsafeMessage(input: string) {
   return matchesAnyKeyword(input, GLOBAL_UNSAFE_KEYWORDS)
 }
 
+function isPersonalInput(message: string) {
+  return PERSONAL_ALLOWED_PATTERNS.some((pattern) => pattern.test(message))
+}
+
+function isSampleQuestionRequest(message: string) {
+  return SAMPLE_QUESTION_PATTERNS.some((pattern) => pattern.test(message))
+}
+
 function isRestrictedMessage(input: string, profile: DomainProfile) {
   return matchesAnyKeyword(input, profile.restrictedTopics)
 }
@@ -330,6 +358,10 @@ function isInDomainMessage(profile: DomainProfile, message: string) {
   }
 
   if (matchesAnyKeyword(normalizedMessage, GENERIC_ALLOWED_PHRASES)) {
+    return true
+  }
+
+  if (isPersonalInput(message) || isSampleQuestionRequest(message)) {
     return true
   }
 
@@ -355,11 +387,15 @@ function buildDomainRejectionText(profile: DomainProfile) {
 
   const options = [
     `I can only help with ${profile.label}. Try asking about ${topicsText}.`,
-    `That is outside my scope. I am focused on ${profile.label}. You can ask me about ${topicsText}.`,
-    `I cannot answer that directly. I am designed for ${profile.label}. Want to explore ${topicsText} instead?`,
+    `I stay focused on ${profile.label}. Ask me about ${topicsText}, and I will help right away.`,
+    `I cannot answer that directly, but I can help with ${profile.label}. Want to explore ${topicsText} instead?`,
   ]
 
   return pickRandom(options)
+}
+
+function buildSafetyRejectionText() {
+  return "I cannot help with harmful or illegal requests. I can help with safe alternatives instead."
 }
 
 export type DomainValidationResult =
@@ -386,7 +422,7 @@ export function validateAgentDomain(
       enforced: true,
       allowed: false,
       domainLabel: resolvedDomain.label,
-      rejectionText: buildDomainRejectionText(resolvedDomain),
+      rejectionText: buildSafetyRejectionText(),
     }
   }
 
